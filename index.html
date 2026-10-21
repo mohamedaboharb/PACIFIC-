@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacific Cargo - نظام إدارة الفواتير</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-area { 
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                padding: 0 !important; 
+                width: 100% !important;
+            }
+        }
+        .navy-header {
+            background-color: #1a4369;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 4px 8px;
+            text-align: center;
+        }
+        .tbl-border {
+            border: 1.5px solid #1a4369;
+        }
+        .tbl-border td, .tbl-border th {
+            border: 1px solid #1a4369;
+        }
+    </style>
+</head>
+<body class="p-3 md:p-6 min-h-screen">
+
+    <header class="max-w-7xl mx-auto mb-6 bg-white rounded-2xl shadow-sm p-4 no-print flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-14 h-14 bg-slate-900 rounded-xl flex items-center justify-center p-1.5 shadow">
+                <!-- Company Logo replacing PC initials -->
+                <svg viewBox="0 0 300 150" class="w-full h-auto">
+                    <ellipse cx="150" cy="75" rx="140" ry="65" fill="#050505" stroke="#eab308" stroke-width="4"/>
+                    <ellipse cx="150" cy="75" rx="132" ry="58" fill="none" stroke="#eab308" stroke-width="2"/>
+                    <text x="150" y="70" font-family="'Times New Roman', serif" font-weight="900" font-size="42" fill="#ffffff" text-anchor="middle">PACIFIC</text>
+                    <text x="150" y="100" font-family="'Times New Roman', serif" font-weight="bold" font-size="28" fill="#ffffff" text-anchor="middle" letter-spacing="4">EGYPT</text>
+                    <path d="M 70 100 Q 150 145 230 100 Q 150 120 70 100 Z" fill="#22c55e"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold text-slate-800">Pacific Cargo System</h1>
+                <p class="text-xs text-slate-500">نظام إدارة وأرشيف الفواتير للإنتاج والتصدير</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="switchTab('list')" id="tabBtnList" class="px-5 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2 bg-slate-900 text-white shadow">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                أرشيف الفواتير (<span id="invoiceCount">0</span>)
+            </button>
+            <button onclick="createNewInvoice()" class="px-5 py-2.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow transition flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                فاتورة جديدة
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto">
+        <div id="listView" class="bg-white rounded-2xl shadow-lg p-6 no-print">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 pb-4 border-b">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">سجل الفواتير المحفوظة</h2>
+                    <p class="text-xs text-slate-500">يمكنك تعديل، طباعة، أو حذف الفواتير المخزنة محلياً</p>
+                </div>
+                <div class="w-full sm:w-72">
+                    <input type="text" id="searchInput" oninput="renderInvoicesList()" placeholder="بحث برقم الفاتورة أو اسم العميل..." class="w-full px-4 py-2 text-sm border rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-right">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 font-bold border-b text-xs">
+                            <th class="p-3">رقم الفاتورة</th>
+                            <th class="p-3">التاريخ</th>
+                            <th class="p-3">اسم العميل</th>
+                            <th class="p-3">المنتج</th>
+                            <th class="p-3">الإجمالي (€)</th>
+                            <th class="p-3 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoicesTableBody" class="divide-y text-slate-600">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="emptyState" class="hidden text-center py-12 text-slate-400">
+                <svg class="w-16 h-16 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <p class="text-base font-semibold">لا توجد فواتير محفوظة حتى الآن</p>
+                <p class="text-xs mt-1">اضغط على "فاتورة جديدة" لإنشاء أول فاتورة</p>
+            </div>
+        </div>
+
+        <div id="editorView" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- FORM PANEL (INPUTS) -->
+            <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-lg no-print overflow-y-auto max-h-[90vh]">
+                <div class="flex justify-between items-center mb-6 pb-4 border-b">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">تعديل بيانات الفاتورة</h2>
+                        <span id="currentStatusBadge" class="inline-block text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-semibold mt-1">تعديل جاري</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveCurrentInvoice()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded-xl shadow transition flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                            حفظ
+                        </button>
+                        <button onclick="downloadPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-xl shadow transition flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            PDF
+                        </button>
+                    </div>
+                </div>
+
+                <form id="invoiceForm" class="space-y-4 text-sm text-right" dir="ltr" onsubmit="event.preventDefault();">
+                    <input type="hidden" id="invId">
+                    
+                    <h3 class="font-bold text-blue-900 border-b pb-1">INVOICE DETAILS</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">INVOICE NO:</label>
+                            <input type="text" id="invNo" value="644" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">PO REF:</label>
+                            <input type="text" id="poRef" value="----" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">DATE:</label>
+                            <input type="text" id="invDate" value="21-10-2026" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">TERMS:</label>
+                            <input type="text" id="terms" value="Within 7 days after arrival" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-blue-900 border-b pb-1 pt-2">NOTIFY PARTY</h3>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600">NOTIFY DETAILS:</label>
+                        <textarea id="notifyParty" rows="2" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">SHYPPLE Fresh B.V.&#10;Vasteland 100 3011BP Rotterdam NETHERLANDS</textarea>
+                    </div>
+
+                    <h3 class="font-bold text-blue-900 border-b pb-1 pt-2">SELLER & CUSTOMER</h3>
+                    <div class="grid grid-cols-1 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">CUSTOMER NAME & ADDRESS:</label>
+                            <textarea id="customerDetails" rows="3" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">Freeland BV Outdoor Vegetables&#10;Nijbracht 126 7821CE Emmen&#10;The Netherlands</textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600">Customer Email:</label>
+                                <input type="text" id="custEmail" value="" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600">Customer Phone:</label>
+                                <input type="text" id="custPhone" value="" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-blue-900 border-b pb-1 pt-2">GOODS & PRICING</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-gray-600">DESCRIPTION:</label>
+                            <input type="text" id="desc" value="Spring Onion" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">QUANTITY:</label>
+                            <input type="number" id="qty" value="4576" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">PACKAGE:</label>
+                            <input type="text" id="package" value="Carton" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">PRICE PER UNIT (€):</label>
+                            <input type="number" step="0.01" id="unitPrice" value="2.40" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-blue-900 border-b pb-1 pt-2">ADDITIONAL DETAILS</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">N.W:</label>
+                            <input type="text" id="nw" value="*" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">G.W:</label>
+                            <input type="text" id="gw" value="*" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">TRA No:</label>
+                            <input type="text" id="traNo" value="" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">ETD:</label>
+                            <input type="text" id="etd" value="---" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">ETA:</label>
+                            <input type="text" id="eta" value="-----" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600">O/F:</label>
+                            <input type="text" id="of" value="****" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600">POD:</label>
+                        <input type="text" id="pod" value="*****" oninput="updateInvoicePreview()" class="w-full p-2 border rounded-lg bg-gray-50">
+                    </div>
+                </form>
+            </div>
+
+            <div class="lg:col-span-7 flex justify-center items-start">
+                <div id="invoicePreview" class="print-area bg-white text-gray-900 p-8 shadow-2xl rounded-sm w-full max-w-[800px] border border-gray-400 relative" dir="ltr" style="font-family: Arial, sans-serif; min-height: 1050px;">
+                    
+                    <!-- TOP HEADER LOGO & TITLE -->
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="w-36">
+                            <!-- Company Logo -->
+                            <svg viewBox="0 0 300 150" class="w-full h-auto">
+                                <ellipse cx="150" cy="75" rx="140" ry="65" fill="#050505" stroke="#eab308" stroke-width="4"/>
+                                <ellipse cx="150" cy="75" rx="132" ry="58" fill="none" stroke="#eab308" stroke-width="2"/>
+                                <text x="150" y="70" font-family="'Times New Roman', serif" font-weight="900" font-size="42" fill="#ffffff" text-anchor="middle">PACIFIC</text>
+                                <text x="150" y="100" font-family="'Times New Roman', serif" font-weight="bold" font-size="28" fill="#ffffff" text-anchor="middle" letter-spacing="4">EGYPT</text>
+                                <path d="M 70 100 Q 150 145 230 100 Q 150 120 70 100 Z" fill="#22c55e"/>
+                            </svg>
+                        </div>
+                        <div class="bg-gray-200 text-center font-bold text-2xl tracking-widest px-16 py-1 text-gray-800 border border-gray-400">
+                            INVOICE
+                        </div>
+                        <div class="w-36"></div>
+                    </div>
+
+                    <!-- SECTION: INVOICE DETAILS & NOTIFY PARTY -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <table class="w-full text-xs tbl-border">
+                            <thead>
+                                <tr><th colspan="2" class="navy-header">INVOICE DETAILS</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td class="font-bold p-1 w-1/3 bg-gray-50">INVOICE NO:</td><td id="outInvNo" class="p-1 font-bold">644</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">PO REF:</td><td id="outPoRef" class="p-1">----</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">DATE:</td><td id="outInvDate" class="p-1 font-bold">21-10-2026</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">TERMS:</td><td id="outTerms" class="p-1 font-bold">Within 7 days after arrival</td></tr>
+                            </tbody>
+                        </table>
+
+                        <table class="w-full text-xs tbl-border">
+                            <thead>
+                                <tr><th class="navy-header">NOTIFY PARTY</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td id="outNotifyParty" class="p-2 align-top whitespace-pre-line font-semibold h-[110px]">
+                                        SHYPPLE Fresh B.V.
+                                        Vasteland 100 3011BP Rotterdam NETHERLANDS
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- SECTION: SELLER INFO & CUSTOMER NAME -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <table class="w-full text-xs tbl-border">
+                            <thead>
+                                <tr><th colspan="2" class="navy-header">Seller Information</th></tr>
+                            </thead>
+                            <tbody class="text-[11px]">
+                                <tr><td class="font-bold p-1 bg-gray-50 w-1/3">Company Name:</td><td class="p-1 font-medium">Pacific Cargo for Import & Export</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">Address:</td><td class="p-1 leading-tight">132 Taawnyar Smouha Alexandria-Egypt</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">Commercial Reg:</td><td class="p-1">65915</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">VAT:</td><td class="p-1">320933733</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">GG NUM:</td><td class="p-1">4059883691429</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">Email:</td><td class="p-1 text-blue-700 underline">info@pacificegypt.com</td></tr>
+                            </tbody>
+                        </table>
+
+                        <table class="w-full text-xs tbl-border">
+                            <thead>
+                                <tr><th colspan="2" class="navy-header">CUSTOMER NAME</th></tr>
+                            </thead>
+                            <tbody class="text-[11px]">
+                                <tr><td class="font-bold p-1 bg-gray-50 w-1/3">Company Name:</td><td id="outCustCompany" class="p-1 font-bold">Freeland BV Outdoor Vegetables</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50 align-top">Address:</td><td id="outCustAddress" class="p-1 whitespace-pre-line h-[70px]">Nijbracht 126 7821CE Emmen&#10;&#10;The Netherlands</td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">Email:</td><td id="outCustEmail" class="p-1"></td></tr>
+                                <tr><td class="font-bold p-1 bg-gray-50">Phone:</td><td id="outCustPhone" class="p-1"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- MAIN PRODUCTS TABLE -->
+                    <table class="w-full text-xs text-center tbl-border mb-4">
+                        <thead>
+                            <tr class="navy-header text-white">
+                                <th class="py-2 px-2 w-1/3">Description</th>
+                                <th class="py-2 px-2">Quantity</th>
+                                <th class="py-2 px-2">Package</th>
+                                <th class="py-2 px-2">P/c (€)</th>
+                                <th class="py-2 px-2">P/TOTAL (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="h-24">
+                                <td id="outDesc" class="p-2 font-bold text-base align-middle">Spring Onion</td>
+                                <td id="outQty" class="p-2 text-base align-middle">4576</td>
+                                <td id="outPackage" class="p-2 text-base align-middle">Carton</td>
+                                <td id="outUnitPrice" class="p-2 text-base align-middle">€ 2.40</td>
+                                <td id="outTotal" class="p-2 text-base align-middle font-bold">€ 10,982.40</td>
+                            </tr>
+                            <tr class="bg-gray-200 font-bold border-t-2 border-black text-sm">
+                                <td class="p-2 text-left pl-3">Total</td>
+                                <td id="outTotalQty" class="p-2">4576</td>
+                                <td colspan="2"></td>
+                                <td id="outGrandTotal" class="p-2">10,982.40 €</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- LOWER DETAILS: NW, GW, TRA NO -->
+                    <div class="flex justify-end mb-4">
+                        <table class="w-3/4 text-xs text-center tbl-border">
+                            <thead>
+                                <tr class="navy-header">
+                                    <th class="w-1/4">N.W</th>
+                                    <th class="w-1/4">G.W</th>
+                                    <th class="w-1/4">TRA No:</th>
+                                    <th class="w-1/4"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td id="outNw" class="p-1 font-bold">*</td>
+                                    <td id="outGw" class="p-1 font-bold">*</td>
+                                    <td id="outTraNo" class="p-1" colspan="2"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- SHIPPING DETAILS -->
+                    <div class="mb-6">
+                        <div class="w-2/5 navy-header text-left pl-2 mb-1">
+                            SHIPPING & CONTAINER DETAILS
+                        </div>
+                        <div class="h-6"></div>
+
+                        <table class="w-full text-xs tbl-border">
+                            <tbody>
+                                <tr>
+                                    <td class="navy-header w-1/6">ETD:</td>
+                                    <td id="outEtd" class="p-1.5 w-1/3 text-center font-bold">---</td>
+                                    <td class="navy-header w-1/6">ETA:</td>
+                                    <td id="outEta" class="p-1.5 w-1/3 text-center font-bold">-----</td>
+                                </tr>
+                                <tr>
+                                    <td class="navy-header">POD:</td>
+                                    <td id="outPod" class="p-1.5 text-center font-bold" colspan="3">*****</td>
+                                </tr>
+                                <tr>
+                                    <td class="navy-header">O/F:</td>
+                                    <td id="outOf" class="p-1.5 text-center font-bold" colspan="3">****</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- STAMP & FOOTER -->
+                    <div class="absolute bottom-10 right-10">
+                        <div class="w-40 h-40 relative flex items-center justify-center">
+                            <svg viewBox="0 0 200 200" class="w-full h-full opacity-90 transform -rotate-12">
+                                <circle cx="100" cy="100" r="92" fill="none" stroke="#0033cc" stroke-width="4.5"/>
+                                <circle cx="100" cy="100" r="84" fill="none" stroke="#0033cc" stroke-width="2"/>
+                                <circle cx="100" cy="100" r="56" fill="none" stroke="#0033cc" stroke-width="2.5"/>
+                                <path id="textPathTop" d="M 22,100 A 78,78 0 1,1 178,100" fill="none"/>
+                                <text fill="#0033cc" font-size="16" font-weight="900" font-family="Arial, sans-serif">
+                                    <textPath href="#textPathTop" startOffset="50%" text-anchor="middle">
+                                        Pacific For Export
+                                    </textPath>
+                                </text>
+                                <path id="textPathBottom" d="M 178,100 A 78,78 0 0,1 22,100" fill="none"/>
+                                <text fill="#0033cc" font-size="15" font-weight="bold" font-family="Arial, sans-serif">
+                                    <textPath href="#textPathBottom" startOffset="50%" text-anchor="middle">
+                                        TR:320933733
+                                    </textPath>
+                                </text>
+                                <text x="100" y="96" fill="#0033cc" font-size="20" font-weight="900" font-family="Arial, sans-serif" text-anchor="middle">
+                                    CR:65915
+                                </text>
+                                <circle cx="100" cy="116" r="3" fill="#0033cc" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="absolute bottom-4 left-0 right-0 text-center italic text-blue-900 font-semibold text-xs">
+                        Thank You for Your Business!
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const STORAGE_KEY = 'pacific_cargo_invoices';
+        let invoices = [];
+        let currentInvoiceId = null;
+
+        // Initialize App
+        window.onload = function() {
+            loadInvoicesFromStorage();
+            if (invoices.length === 0) {
+                // Seed initial default invoice
+                const seed = createInitialInvoiceObj();
+                invoices.push(seed);
+                saveInvoicesToStorage();
+            }
+            renderInvoicesList();
+            switchTab('list');
+        };
+
+        function createInitialInvoiceObj() {
+            return {
+                id: 'inv_' + Date.now(),
+                invNo: '644',
+                poRef: '----',
+                invDate: '21-10-2026',
+                terms: 'Within 7 days after arrival',
+                notifyParty: 'SHYPPLE Fresh B.V.\nVasteland 100 3011BP Rotterdam NETHERLANDS',
+                customerDetails: 'Freeland BV Outdoor Vegetables\nNijbracht 126 7821CE Emmen\nThe Netherlands',
+                custEmail: '',
+                custPhone: '',
+                desc: 'Spring Onion',
+                qty: 4576,
+                package: 'Carton',
+                unitPrice: 2.40,
+                nw: '*',
+                gw: '*',
+                traNo: '',
+                etd: '---',
+                eta: '-----',
+                pod: '*****',
+                of: '****'
+            };
+        }
+
+        // Storage helpers
+        function loadInvoicesFromStorage() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            invoices = data ? JSON.parse(data) : [];
+        }
+
+        function saveInvoicesToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
+            document.getElementById('invoiceCount').innerText = invoices.length;
+        }
+
+        // View Tabs Controller
+        function switchTab(viewName) {
+            const listView = document.getElementById('listView');
+            const editorView = document.getElementById('editorView');
+            const tabBtnList = document.getElementById('tabBtnList');
+
+            if (viewName === 'list') {
+                listView.classList.remove('hidden');
+                editorView.classList.add('hidden');
+                renderInvoicesList();
+            } else {
+                listView.classList.add('hidden');
+                editorView.classList.remove('hidden');
+            }
+        }
+
+        // Render Invoices Table
+        function renderInvoicesList() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const tbody = document.getElementById('invoicesTableBody');
+            const emptyState = document.getElementById('emptyState');
+
+            tbody.innerHTML = '';
+
+            const filtered = invoices.filter(inv => 
+                inv.invNo.toString().toLowerCase().includes(searchTerm) ||
+                inv.customerDetails.toLowerCase().includes(searchTerm) ||
+                inv.desc.toLowerCase().includes(searchTerm)
+            );
+
+            document.getElementById('invoiceCount').innerText = invoices.length;
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(inv => {
+                const totalAmount = (inv.qty * inv.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2 });
+                const clientName = inv.customerDetails.split('\n')[0] || 'N/A';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 border-b transition';
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-blue-900">#${inv.invNo}</td>
+                    <td class="p-3 text-xs text-slate-500">${inv.invDate}</td>
+                    <td class="p-3 font-semibold text-slate-800">${clientName}</td>
+                    <td class="p-3">${inv.desc}</td>
+                    <td class="p-3 font-bold text-slate-900">€ ${totalAmount}</td>
+                    <td class="p-3 text-center">
+                        <div class="flex justify-center items-center gap-2">
+                            <button onclick="editInvoice('${inv.id}')" title="تعديل وتصميم" class="bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-semibold py-1.5 px-3 rounded-lg transition">
+                                تعديل / طباعة
+                            </button>
+                            <button onclick="deleteInvoice('${inv.id}')" title="حذف" class="bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold py-1.5 px-2.5 rounded-lg transition">
+                                حذف
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Actions
+        function createNewInvoice() {
+            const newInv = createInitialInvoiceObj();
+            newInv.id = 'inv_' + Date.now();
+            newInv.invNo = (invoices.length > 0 ? Math.max(...invoices.map(i => parseInt(i.invNo) || 0)) + 1 : 100).toString();
+            
+            invoices.unshift(newInv);
+            saveInvoicesToStorage();
+            editInvoice(newInv.id);
+        }
+
+        function editInvoice(id) {
+            const inv = invoices.find(i => i.id === id);
+            if (!inv) return;
+
+            currentInvoiceId = id;
+            document.getElementById('invId').value = inv.id;
+            document.getElementById('invNo').value = inv.invNo;
+            document.getElementById('poRef').value = inv.poRef;
+            document.getElementById('invDate').value = inv.invDate;
+            document.getElementById('terms').value = inv.terms;
+            document.getElementById('notifyParty').value = inv.notifyParty;
+            document.getElementById('customerDetails').value = inv.customerDetails;
+            document.getElementById('custEmail').value = inv.custEmail || '';
+            document.getElementById('custPhone').value = inv.custPhone || '';
+            document.getElementById('desc').value = inv.desc;
+            document.getElementById('qty').value = inv.qty;
+            document.getElementById('package').value = inv.package;
+            document.getElementById('unitPrice').value = inv.unitPrice;
+            document.getElementById('nw').value = inv.nw;
+            document.getElementById('gw').value = inv.gw;
+            document.getElementById('traNo').value = inv.traNo;
+            document.getElementById('etd').value = inv.etd;
+            document.getElementById('eta').value = inv.eta;
+            document.getElementById('pod').value = inv.pod;
+            document.getElementById('of').value = inv.of;
+
+            updateInvoicePreview();
+            switchTab('editor');
+        }
+
+        function saveCurrentInvoice() {
+            if (!currentInvoiceId) return;
+
+            const index = invoices.findIndex(i => i.id === currentInvoiceId);
+            if (index === -1) return;
+
+            invoices[index] = {
+                id: currentInvoiceId,
+                invNo: document.getElementById('invNo').value,
+                poRef: document.getElementById('poRef').value,
+                invDate: document.getElementById('invDate').value,
+                terms: document.getElementById('terms').value,
+                notifyParty: document.getElementById('notifyParty').value,
+                customerDetails: document.getElementById('customerDetails').value,
+                custEmail: document.getElementById('custEmail').value,
+                custPhone: document.getElementById('custPhone').value,
+                desc: document.getElementById('desc').value,
+                qty: parseFloat(document.getElementById('qty').value) || 0,
+                package: document.getElementById('package').value,
+                unitPrice: parseFloat(document.getElementById('unitPrice').value) || 0,
+                nw: document.getElementById('nw').value,
+                gw: document.getElementById('gw').value,
+                traNo: document.getElementById('traNo').value,
+                etd: document.getElementById('etd').value,
+                eta: document.getElementById('eta').value,
+                pod: document.getElementById('pod').value,
+                of: document.getElementById('of').value
+            };
+
+            saveInvoicesToStorage();
+            switchTab('list');
+        }
+
+        function deleteInvoice(id) {
+            if (confirm('هل أنت تأكد من رغبتك في حذف هذه الفاتورة؟')) {
+                invoices = invoices.filter(i => i.id !== id);
+                saveInvoicesToStorage();
+                renderInvoicesList();
+            }
+        }
+
+        // Live Preview Sync
+        function updateInvoicePreview() {
+            const invNo = document.getElementById('invNo').value;
+            const poRef = document.getElementById('poRef').value;
+            const invDate = document.getElementById('invDate').value;
+            const terms = document.getElementById('terms').value;
+            const notifyParty = document.getElementById('notifyParty').value;
+
+            const custText = document.getElementById('customerDetails').value;
+            const lines = custText.split('\n');
+            const compName = lines[0] || '';
+            const address = lines.slice(1).join('\n');
+
+            const custEmail = document.getElementById('custEmail').value;
+            const custPhone = document.getElementById('custPhone').value;
+
+            const desc = document.getElementById('desc').value;
+            const qty = parseFloat(document.getElementById('qty').value) || 0;
+            const pkg = document.getElementById('package').value;
+            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+
+            const nw = document.getElementById('nw').value;
+            const gw = document.getElementById('gw').value;
+            const traNo = document.getElementById('traNo').value;
+
+            const etd = document.getElementById('etd').value;
+            const eta = document.getElementById('eta').value;
+            const pod = document.getElementById('pod').value;
+            const of = document.getElementById('of').value;
+
+            const totalPrice = qty * unitPrice;
+
+            document.getElementById('outInvNo').innerText = invNo;
+            document.getElementById('outPoRef').innerText = poRef;
+            document.getElementById('outInvDate').innerText = invDate;
+            document.getElementById('outTerms').innerText = terms;
+            document.getElementById('outNotifyParty').innerText = notifyParty;
+
+            document.getElementById('outCustCompany').innerText = compName;
+            document.getElementById('outCustAddress').innerText = address;
+            document.getElementById('outCustEmail').innerText = custEmail;
+            document.getElementById('outCustPhone').innerText = custPhone;
+
+            document.getElementById('outDesc').innerText = desc;
+            document.getElementById('outQty').innerText = qty;
+            document.getElementById('outPackage').innerText = pkg;
+            document.getElementById('outUnitPrice').innerText = "€ " + unitPrice.toFixed(2);
+            document.getElementById('outTotal').innerText = "€ " + totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            document.getElementById('outTotalQty').innerText = qty;
+            document.getElementById('outGrandTotal').innerText = totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+
+            document.getElementById('outNw').innerText = nw;
+            document.getElementById('outGw').innerText = gw;
+            document.getElementById('outTraNo').innerText = traNo;
+
+            document.getElementById('outEtd').innerText = etd;
+            document.getElementById('outEta').innerText = eta;
+            document.getElementById('outPod').innerText = pod;
+            document.getElementById('outOf').innerText = of;
+        }
+
+        // PDF Generation
+        function downloadPDF() {
+            saveCurrentInvoice(); // Auto save before downloading
+            const element = document.getElementById('invoicePreview');
+            const invNo = document.getElementById('invNo').value || 'Invoice';
+            
+            const opt = {
+                margin:       [0.2, 0.2, 0.2, 0.2],
+                filename:     `Invoice_${invNo}_Pacific.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, logging: false },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>
